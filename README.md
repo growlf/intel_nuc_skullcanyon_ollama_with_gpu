@@ -8,16 +8,19 @@ Get Ollama running with full GPU acceleration on Ubuntu 24.04 LTS using Intel in
 
 Follow the [Opencode installation guide](https://opencode.ai/install) for your platform.
 
-**2. Start the agent**
+**2. Clone the repo and start Opencode**
 
 ```bash
-opencode --agent-mode --model zen-bigpickle \
-  --context-url https://raw.githubusercontent.com/growlf/intel_nuc_skullcanyon_ollama_with_gpu/main/AGENT_ORCHESTRATION.md
+git clone https://github.com/growlf/intel_nuc_skullcanyon_ollama_with_gpu.git
+cd intel_nuc_skullcanyon_ollama_with_gpu
+opencode
 ```
 
-**3. Follow the prompts**
+The `AGENTS.md` file in the project root (along with `AGENT_ORCHESTRATION.md` via `opencode.json`) provides full context to the agent automatically.
 
-The agent will ask you to collect your system state:
+**3. Collect your system state when asked**
+
+The agent will ask you to run:
 
 ```bash
 bash <(curl -s https://raw.githubusercontent.com/growlf/intel_nuc_skullcanyon_ollama_with_gpu/main/collect-state.sh)
@@ -37,3 +40,4 @@ This repo is the behind-the-scenes playbook for the agent. It is **not** a stand
 | `collect-state.sh` | System state collector (run once, outputs JSON) |
 | `AGENTS.md` | Quick-reference for agent sessions |
 | `AGENT_DEPLOYMENT.md` | Deployment and user guide |
+| `opencode.json` | Project config — loads `AGENT_ORCHESTRATION.md` as agent instructions |

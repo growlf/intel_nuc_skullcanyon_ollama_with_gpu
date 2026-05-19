@@ -1,6 +1,5 @@
 # System state output from collect-state.sh
 /tmp/ollama-setup-state-*.json
-*.json
 
 # OS artifacts
 .DS_Store
