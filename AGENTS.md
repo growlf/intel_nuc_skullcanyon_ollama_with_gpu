@@ -25,8 +25,7 @@ Agent context is provided by `AGENT_ORCHESTRATION.md` (loaded via `opencode.json
 
 ```bash
 # Start Opencode in this repo (AGENTS.md + AGENT_ORCHESTRATION.md auto-loaded)
-cd intel_nuc_skullcanyon_ollama_with_gpu
-opencode
+git clone https://github.com/growlf/intel_nuc_skullcanyon_ollama_with_gpu.git && cd $_ && opencode
 
 # Collect system state (run when agent asks)
 bash <(curl -s https://raw.githubusercontent.com/growlf/intel_nuc_skullcanyon_ollama_with_gpu/main/collect-state.sh)

@@ -19,17 +19,13 @@ You're about to set up Ollama with Intel GPU acceleration using an autonomous Op
 
 ### Steps
 
-#### Step 1: Clone the Repo and Start Opencode
-
-In your terminal:
+#### Step 1: Paste This One Command
 
 ```bash
-git clone https://github.com/growlf/intel_nuc_skullcanyon_ollama_with_gpu.git
-cd intel_nuc_skullcanyon_ollama_with_gpu
-opencode
+git clone https://github.com/growlf/intel_nuc_skullcanyon_ollama_with_gpu.git && cd $_ && opencode
 ```
 
-The `AGENTS.md` and `AGENT_ORCHESTRATION.md` files are loaded automatically.
+This clones the repo and starts Opencode. The `AGENTS.md` and `AGENT_ORCHESTRATION.md` files are loaded automatically.
 
 Or if your system has an interactive setup:
 
