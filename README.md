@@ -8,21 +8,13 @@ Get Ollama running with full GPU acceleration on Ubuntu 24.04 LTS using Intel in
 
 Follow the [Opencode installation guide](https://opencode.ai/install). One-time setup.
 
-**2. Paste this in your terminal:**
+**2. Open Opencode and paste this:**
 
-```bash
-git clone https://github.com/growlf/intel_nuc_skullcanyon_ollama_with_gpu.git && cd $_ && opencode
+```
+Fetch https://raw.githubusercontent.com/growlf/intel_nuc_skullcanyon_ollama_with_gpu/main/AGENT_ORCHESTRATION.md and follow it to set up Ollama GPU acceleration on this system.
 ```
 
-The repo auto-loads `AGENT_ORCHESTRATION.md` (the full setup playbook) into the agent's context. Just tell it you want GPU acceleration working.
-
-**3. When the agent asks, run:**
-
-```bash
-bash <(curl -s https://raw.githubusercontent.com/growlf/intel_nuc_skullcanyon_ollama_with_gpu/main/collect-state.sh)
-```
-
-Paste the JSON output back. The agent handles everything from there — groups, install, Vulkan config, verification.
+That's it. The agent reads the playbook, asks you to run the state collector, then guides you through everything.
 
 ## What this is
 

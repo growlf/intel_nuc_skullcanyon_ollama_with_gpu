@@ -16,16 +16,16 @@ Agent context is provided by `AGENT_ORCHESTRATION.md` (loaded via `opencode.json
 
 ## How an agent uses this repo
 
-1. User clones the repo and runs `opencode` in it — `AGENTS.md` is auto-discovered, and `AGENT_ORCHESTRATION.md` is loaded via `opencode.json`.
-2. Agent reads `AGENT_ORCHESTRATION.md` as its complete playbook — it contains decision tree, exact commands, verification steps, and troubleshooting.
+1. User tells agent: "Fetch the playbook at this URL and follow it."
+2. Agent `webfetch`es `AGENT_ORCHESTRATION.md` — decision tree, exact commands, verification steps, and troubleshooting.
 3. Agent asks user to run `collect-state.sh` via `bash <(curl -s ...)` — the JSON output drives the decision tree.
 4. Agent guides user through: group membership → Ollama install → Vulkan systemd override → GPU verification.
 
 ## Key commands
 
 ```bash
-# Start Opencode in this repo (AGENTS.md + AGENT_ORCHESTRATION.md auto-loaded)
-git clone https://github.com/growlf/intel_nuc_skullcanyon_ollama_with_gpu.git && cd $_ && opencode
+# The message to paste into Opencode:
+Fetch https://raw.githubusercontent.com/growlf/intel_nuc_skullcanyon_ollama_with_gpu/main/AGENT_ORCHESTRATION.md and follow it to set up Ollama GPU acceleration on this system.
 
 # Collect system state (run when agent asks)
 bash <(curl -s https://raw.githubusercontent.com/growlf/intel_nuc_skullcanyon_ollama_with_gpu/main/collect-state.sh)
