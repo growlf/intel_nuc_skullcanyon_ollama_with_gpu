@@ -25,12 +25,7 @@ The magic: **Host these files on your website**, configure Opencode to use them,
 - **Verification Steps:** How to confirm success
 - **Troubleshooting Guide:** How to handle failures
 
-**Use:** Point Opencode agent to this file as context
-
-```bash
-opencode --agent-mode \
-  --context-url https://your-site.com/ollama-setup/AGENT_ORCHESTRATION.md
-```
+**Use:** Loaded automatically via `opencode.json` `instructions` — just run `opencode` in the cloned repo.
 
 ---
 
@@ -123,22 +118,15 @@ curl -I https://your-domain.com/ollama-setup/collect-state.sh
 # Should return: 200 OK
 ```
 
-### Step 3: Configure Opencode (User's System)
-
-Users run:
+### Step 3: Run Opencode in the Repo
 
 ```bash
-opencode --agent-mode --model zen-bigpickle \
-  --context-url https://your-domain.com/ollama-setup/AGENT_ORCHESTRATION.md
+git clone https://github.com/growlf/intel_nuc_skullcanyon_ollama_with_gpu.git
+cd intel_nuc_skullcanyon_ollama_with_gpu
+opencode
 ```
 
-Or configure in Opencode settings:
-```
-Opencode → Settings → Agent Mode
-→ Model: zen-bigpickle
-→ Context URL: https://your-domain.com/ollama-setup/AGENT_ORCHESTRATION.md
-→ Start Agent
-```
+The `AGENT_ORCHESTRATION.md` playbook is loaded automatically via `opencode.json`.
 
 ### Step 4: User Runs Agent
 

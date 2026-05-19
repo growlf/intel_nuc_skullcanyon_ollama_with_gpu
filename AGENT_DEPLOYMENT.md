@@ -19,14 +19,17 @@ You're about to set up Ollama with Intel GPU acceleration using an autonomous Op
 
 ### Steps
 
-#### Step 1: Set Up Opencode to Read This Guide
+#### Step 1: Clone the Repo and Start Opencode
 
-In your Opencode terminal:
+In your terminal:
 
 ```bash
-opencode --agent-mode --model zen-bigpickle \
-  --context-url https://your-website.com/ollama-setup/AGENT_ORCHESTRATION.md
+git clone https://github.com/growlf/intel_nuc_skullcanyon_ollama_with_gpu.git
+cd intel_nuc_skullcanyon_ollama_with_gpu
+opencode
 ```
+
+The `AGENTS.md` and `AGENT_ORCHESTRATION.md` files are loaded automatically.
 
 Or if your system has an interactive setup:
 
@@ -111,9 +114,9 @@ ollama ps
 3. **Create a startup script for users**
    ```bash
    #!/bin/bash
-   # Start Opencode with agent mode enabled
-   opencode --agent-mode --model zen-bigpickle \
-     --context-url "https://your-domain.com/ollama-setup/AGENT_ORCHESTRATION.md"
+   # Start Opencode with the GPU setup agent
+   cd intel_nuc_skullcanyon_ollama_with_gpu
+   opencode
    ```
 
 4. **Provide users with simple instructions**
