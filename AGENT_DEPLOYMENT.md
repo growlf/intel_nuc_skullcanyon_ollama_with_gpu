@@ -331,6 +331,12 @@ print("Setup complete!")
 | **Verification** | 2 min | Agent verifies GPU works |
 | **Total** | **10-15 min** | Complete setup ready |
 
+> **Post-Setup Tip:** Prevent critical packages from being auto-removed by apt:
+> ```
+> sudo apt-mark hold mesa-vulkan-drivers intel-gpu-tools jq
+> ```
+> Without this, `apt autoremove` may remove `mesa-vulkan-drivers` (breaks GPU inference), `intel-gpu-tools` (breaks `intel_gpu_top` diagnostics), or `jq` (used by `collect-state.sh`).
+
 ---
 
 ## Hosting the Files

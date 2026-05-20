@@ -350,6 +350,29 @@ sudo chown -R ollama:ollama /usr/share/ollama/.ollama/
 
 ---
 
+### Action: Hold Critical Packages
+
+**Purpose:** Prevent `apt autoremove` from removing packages needed for GPU acceleration
+
+**Prerequisites:**
+- Setup completed (Ollama installed, Vulkan configured)
+
+**Command:**
+```bash
+sudo apt-mark hold mesa-vulkan-drivers intel-gpu-tools jq
+```
+
+**What it does:**
+- `mesa-vulkan-drivers` — Intel Vulkan driver (GPU inference won't work without it)
+- `intel-gpu-tools` — `intel_gpu_top` for real-time GPU monitoring
+- `jq` — Required by `collect-state.sh` for JSON output
+
+**Post-action:**
+- Check: `apt-mark showhold` (should list the held packages)
+- Remember: `apt-mark unhold <package>` if you ever need to upgrade or remove them
+
+---
+
 ## Verification Steps
 
 ### Quick Health Check
