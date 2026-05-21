@@ -3,14 +3,14 @@
 ║           🚀 OLLAMA GPU SETUP - AGENT-DRIVEN DEPLOYMENT 🚀               ║
 ║                                                                            ║
 ║              Web-Hosted, Opencode-Autonomous Setup System                ║
-║              Complete package for Intel iGPU acceleration                 ║
+║     Complete package for Intel iGPU + AMD Radeon GPU acceleration         ║
 ║                                                                            ║
 ╚════════════════════════════════════════════════════════════════════════════╝
 
 📦 WHAT YOU'RE DEPLOYING
 ═══════════════════════════════════════════════════════════════════════════
 
-A complete autonomous system for Ollama GPU acceleration that:
+A complete autonomous system for Ollama GPU acceleration (Intel iGPU and AMD Radeon) that:
   ✓ Hosts on your website as static files
   ✓ Works with Opencode agent (Zen Bigpickle model)
   ✓ Guides users through setup automatically
@@ -108,11 +108,13 @@ Total time: 10-15 minutes (mostly waiting for Ollama install/restart)
 
 Agent reads AGENT_ORCHESTRATION.md and follows this logic:
 
-1. Is GPU Intel? 
-   ├─ YES → Continue
-   └─ NO → STOP (unsupported, point user to NVIDIA/AMD docs)
+1. GPU type?
+   ├─ Intel only → Continue (Intel path)
+   ├─ AMD only → Continue (AMD path)
+   ├─ Intel + AMD hybrid → Continue (both GPUs)
+   └─ NVIDIA → STOP (nvidia-cuda-toolkit, out of scope)
 
-2. Is i915 driver loaded?
+2. Is GPU driver loaded (i915 for Intel / amdgpu for AMD)?
    ├─ YES → Continue  
    └─ NO → BLOCKER (install kernel updates or enable in BIOS)
 
@@ -151,8 +153,8 @@ User sees something like:
   
   👤 User: [Runs command, pastes JSON]
   
-  🤖 Agent: "I see you have Intel Iris Pro 580 GPU, but you're not in the
-     'render' group. This prevents GPU access. I'll add you now."
+   🤖 Agent: "I see you have AMD Radeon RX Vega M GH GPU, but you're not in the
+      'render' group. This prevents GPU access. I'll add you now."
   
   📝 Agent: "I'm about to run:
      $ sudo usermod -aG render,video,ollama $USER
@@ -170,13 +172,13 @@ User sees something like:
   
   [Agent detects next blocker, guides user, repeat until done]
   
-  ✅ Agent: "Setup complete! GPU acceleration is working.
-     
-     Verified:
-     ✓ Ollama service running
-     ✓ GPU detected (Vulkan, 23.4 GiB)
-     ✓ Test model loaded successfully
-     ✓ GPU is being used (100% GPU in processor)"
+   ✅ Agent: "Setup complete! GPU acceleration is working.
+      
+      Verified:
+      ✓ Ollama service running
+      ✓ GPU(s) detected (Vulkan — AMD Radeon RX Vega M GH + Intel HD 630)
+      ✓ Test model loaded successfully
+      ✓ GPU is being used (100% GPU in processor)"
 
 
 🏗️ ARCHITECTURE
@@ -284,7 +286,7 @@ Your deployment is working when:
 User's system after agent finishes:
 
 ✓ Ollama installed (native systemd service)
-✓ GPU acceleration enabled (Vulkan via Mesa ANV)
+✓ GPU acceleration enabled (Vulkan via Mesa ANV for Intel, RADV for AMD)
 ✓ User added to render, video, ollama groups
 ✓ Systemd override configured with GPU settings
 ✓ Model directory owned by ollama user
@@ -425,4 +427,4 @@ RESULT: Professional, autonomous, intelligent setup system that requires
 Ready to deploy? Start with INDEX.md for full details.
 
 ═══════════════════════════════════════════════════════════════════════════
-Version: 2.0-agent-driven | Updated: May 2026 | System: Ollama 0.24.0+
+Version: 2.1-agent-driven | Updated: May 2026 | System: Ollama 0.24.0+ | GPU: Intel Gen9+ / AMD Polaris+ via Vulkan

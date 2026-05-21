@@ -1,6 +1,6 @@
-# Ollama Intel GPU Acceleration Setup - Agent Orchestration Guide
+# Ollama GPU Acceleration Setup (Intel & AMD) - Agent Orchestration Guide
 
-**Version:** 2.0-agent-driven  
+**Version:** 2.1-agent-driven  
 **Last Updated:** May 2026  
 **For:** Opencode Terminal Agent (Zen Bigpickle or equivalent)
 
@@ -22,17 +22,19 @@ No external documentation or decision-making required. This is your complete gui
 
 ## Executive Summary
 
-**Goal:** Set up Ollama with Intel GPU acceleration (Vulkan via Mesa ANV) on Ubuntu 24.04 LTS
+**Goal:** Set up Ollama with GPU acceleration (Vulkan via Mesa) on Ubuntu 24.04 LTS, supporting both Intel iGPU and AMD Radeon GPUs.
 
 **Hardware Support:**
 - Intel NUC6i7KYB (Iris Pro 580, Skylake Gen9)
 - Other Intel iGPU systems (Kaby Lake Gen10+)
-- ~12-23 GB unified memory available for models
+- **Intel NUC8i7HVK (Hades Canyon)** — dual GPU: Intel HD 630 + AMD Radeon RX Vega M GH
+- AMD Radeon GPUs supported by Mesa RADV (Polaris, Vega, Navi, RDNA+)
+- ~4-23 GB available GPU memory (varies by GPU)
 
 **Software Stack:**
 - Ollama 0.24.0+ (native systemd service)
-- Mesa ANV (Intel Vulkan driver)
-- Kernel: i915 driver (Skylake+)
+- Mesa ANV (Intel) or RADV (AMD) Vulkan driver
+- Kernel: i915 (Intel) or amdgpu (AMD) driver
 - Render node: `/dev/dri/renderD128` or similar
 
 **Success Criteria:**
@@ -66,16 +68,19 @@ ls -l /dev/dri/
 ```
 
 **Supported GPUs:**
-| GPU | Code | Gen | Notes |
-|-----|------|-----|-------|
-| Iris Pro 580 | 193b | Skylake (Gen9) | Full support, 128MB eDRAM |
-| Iris Graphics | 591b, 5912 | Kaby Lake (Gen10) | Full support |
-| UHD Graphics | 5912+ | Coffee Lake+ | Full support |
+| GPU | Code | Driver | Vulkan | Notes |
+|-----|------|--------|--------|-------|
+| Iris Pro 580 | 193b | i915 | ANV | Full support, 128MB eDRAM |
+| Iris/UHD Graphics | 5912+ | i915 | ANV | Kaby/Coffee/Comet Lake |
+| HD Graphics 630 | 591b | i915 | ANV | Found in Hades Canyon NUC |
+| **Radeon RX Vega M GH** | **694c** | **amdgpu** | **RADV** | **Hades Canyon — confirmed working** |
+| Radeon RX 400/500/Vega | various | amdgpu | RADV | Polaris/Vega supported via Mesa |
+| Radeon RX 6000+ (RDNA) | various | amdgpu | RADV | RDNA1/2/3 supported via Mesa |
 
 **Unsupported:**
 - NVIDIA (use nvidia-cuda-toolkit instead)
-- AMD Radeon (use ROCm instead)
 - Very old Intel (pre-Skylake may lack proper drivers)
+- Very old AMD (pre-GCN may lack proper Vulkan support)
 
 ### Software State
 
@@ -128,30 +133,42 @@ fi
 
 Based on system state, follow this logic:
 
-### Step 0: Is this Intel iGPU?
+### Step 0: GPU Type Detection
 
 ```
-GPU manufacturer check: lspci -nn | grep -i "vga\|3d"
-├─ Contains "Intel" 
-│  └─ Proceed to Step 1
+lspci -nn | grep -iE "vga|3d|display"
+├─ Contains "Intel" (and "AMD" in same system — hybrid GPU like Hades Canyon)
+│  └─ Proceed — hybrid system, both GPUs will be available via Vulkan
+├─ Contains "Intel" only
+│  └─ Proceed to Step 1 (Intel iGPU path)
+├─ Contains "AMD" only
+│  └─ Proceed to Step 1 (AMD Radeon path — uses amdgpu + RADV)
 ├─ Contains "NVIDIA"
 │  └─ STOP: Guide user to nvidia-cuda-toolkit (out of scope)
-├─ Contains "AMD"
-│  └─ STOP: Guide user to ROCm (out of scope)
 └─ Unknown/None detected
    └─ WARN: Verify with `lspci` or check BIOS settings
 ```
 
-### Step 1: Is i915 driver loaded?
+### Step 1: Is GPU driver loaded?
 
+**For Intel iGPU:**
 ```
 Check: lspci -v -s 00:02.0 | grep "Kernel driver"
 ├─ Shows "i915"
 │  └─ Proceed to Step 2
 └─ Shows anything else or missing
-   └─ CRITICAL BLOCKER
-      Action: Advise kernel update or GPU enable in BIOS
-      This setup cannot proceed without i915
+   └─ CRITICAL BLOCKER — Advise kernel update or GPU enable in BIOS
+```
+
+**For AMD Radeon:**
+```
+Check: lspci -v -s $(lspci -nn | grep -i amd | grep -iE "vga|3d" | cut -d' ' -f1) | grep "Kernel driver"
+├─ Shows "amdgpu"
+│  └─ Proceed to Step 2
+└─ Shows "radeon" (legacy driver)
+   └─ WARN: Switch to amdgpu kernel parameter `amdgpu.si_support=1 amdgpu.cik_support=1`
+└─ Shows anything else or missing
+   └─ CRITICAL BLOCKER — Advise kernel update or firmware install
 ```
 
 ### Step 2: Is render node available?
@@ -209,12 +226,24 @@ Check: sudo cat /etc/systemd/system/ollama.service.d/override.conf
    └─ CRITICAL CONFIG
       Action: Create override.conf with GPU settings
       Location: /etc/systemd/system/ollama.service.d/override.conf
-      Content:
+
+      For Intel iGPU:
         [Service]
         Environment="OLLAMA_VULKAN=1"
         Environment="RUSTICL_ENABLE=iris"
         Environment="GPU_MAX_ALLOC_PERCENT=100"
         Environment="OLLAMA_GPU_OVERHEAD=0"
+
+      For AMD Radeon (or hybrid Intel+AMD):
+        [Service]
+        Environment="OLLAMA_VULKAN=1"
+        Environment="GPU_MAX_ALLOC_PERCENT=100"
+        Environment="OLLAMA_GPU_OVERHEAD=0"
+
+      Note: RUSTICL_ENABLE=iris is Intel-specific. On AMD-only or hybrid
+      systems, omit it. On hybrid systems, both GPUs will be discovered
+      automatically — Ollama schedules models on whichever GPU fits best.
+
       Then: sudo systemctl daemon-reload && sudo systemctl restart ollama
 ```
 
@@ -288,14 +317,16 @@ curl -fsSL https://ollama.com/install.sh | sh
 
 ### Action: Configure Vulkan GPU Support
 
-**Purpose:** Enable GPU acceleration via Vulkan/Mesa ANV
+**Purpose:** Enable GPU acceleration via Vulkan (Mesa ANV for Intel, RADV for AMD)
 
 **Prerequisites:**
 - Ollama installed
-- i915 driver loaded
+- GPU driver loaded (i915 or amdgpu)
 - Mesa Vulkan libraries available (usually pre-installed on Ubuntu 24.04)
 
-**Command:**
+**Commands:**
+
+**For Intel iGPU:**
 ```bash
 # Create directory if needed
 sudo mkdir -p /etc/systemd/system/ollama.service.d
@@ -308,23 +339,44 @@ Environment="RUSTICL_ENABLE=iris"
 Environment="GPU_MAX_ALLOC_PERCENT=100"
 Environment="OLLAMA_GPU_OVERHEAD=0"
 EOF
+```
 
-# Reload systemd and restart service
+**For AMD Radeon (or hybrid Intel+AMD):**
+```bash
+# Create directory if needed
+sudo mkdir -p /etc/systemd/system/ollama.service.d
+
+# Write override configuration (no RUSTICL_ENABLE — Intel-specific)
+sudo tee /etc/systemd/system/ollama.service.d/override.conf > /dev/null << 'EOF'
+[Service]
+Environment="OLLAMA_VULKAN=1"
+Environment="GPU_MAX_ALLOC_PERCENT=100"
+Environment="OLLAMA_GPU_OVERHEAD=0"
+EOF
+```
+
+**Reload for either config:**
+```bash
 sudo systemctl daemon-reload
 sudo systemctl restart ollama
 ```
 
 **What it does:**
-- `OLLAMA_VULKAN=1` - Forces Vulkan GPU backend (vs. CPU)
-- `RUSTICL_ENABLE=iris` - Enables Intel Mesa OpenCL support
-- `GPU_MAX_ALLOC_PERCENT=100` - Uses full GPU memory
-- `OLLAMA_GPU_OVERHEAD=0` - Minimizes overhead (for iGPU)
+- `OLLAMA_VULKAN=1` — Forces Vulkan GPU backend (vs. CPU)
+- `RUSTICL_ENABLE=iris` — Intel-only: enables Mesa OpenCL (omit for AMD)
+- `GPU_MAX_ALLOC_PERCENT=100` — Uses full GPU memory
+- `OLLAMA_GPU_OVERHEAD=0` — Minimizes overhead
 
 **Post-action:**
 - Wait 5 seconds for service restart
 - Check: `sudo systemctl status ollama`
 - Verify GPU detected: `sudo journalctl -u ollama -n 50 | grep -i "Vulkan\|GPU"`
-- Look for: `inference compute ... library=Vulkan name=Vulkan0 description="Intel(R)..."`
+- Look for entries like:
+```
+inference compute ... library=Vulkan name=Vulkan0 description="AMD Radeon RX Vega M GH Graphics (RADV VEGAM)" type=discrete total="4.0 GiB"
+inference compute ... library=Vulkan name=Vulkan1 description="Intel(R) HD Graphics 630 (KBL GT2)" type=iGPU total="23.4 GiB"
+```
+- Hybrid systems (Intel+AMD) will show **both** GPUs. Ollama schedules models on whichever fits.
 
 ---
 
@@ -449,13 +501,67 @@ newgrp render  # Activates render group for this session only
 
 ### Issue: "No NVIDIA/AMD GPU detected" warning
 
-**Cause:** Expected! Ollama installer doesn't know about Intel iGPUs
+**Cause:** Expected! Ollama installer doesn't know about non-NVIDIA GPUs
 
-**Diagnosis:** This is just a warning, not an error
+**Diagnosis:** This is just a warning, not an error. Ollama's install script only recognizes NVIDIA GPUs.
 
 **Solution:** Configure Vulkan override (Action: Configure Vulkan GPU Support)
 
 **Result:** After override, warning disappears and GPU is used
+
+---
+
+### Issue: Ollama shows "inference compute" CPU only, no Vulkan GPUs
+
+**Cause:** The `ollama` service user doesn't have access to the render nodes.
+
+**Diagnosis:**
+```bash
+groups ollama
+# Expected: ollama render video
+```
+If `render` is missing, the Ollama service can't access `/dev/dri/renderD*`.
+
+**Solution:**
+```bash
+sudo usermod -aG render,video ollama
+sudo systemctl restart ollama
+# Wait 5 seconds, then check again
+sudo journalctl -u ollama -n 30 | grep -i vulkan
+```
+
+**Note:** The log shows the GPU at service startup. If you checked before the group
+fix was applied, the earlier entries will still show CPU-only. Look at the most
+recent restart timestamp. The GPU entry looks like:
+```
+inference compute ... library=Vulkan name=Vulkan0 description="AMD Radeon RX Vega M GH Graphics (RADV VEGAM)" ...
+```
+
+---
+
+### Issue: Hybrid GPU (Intel+AMD) — only one GPU detected
+
+**Cause:** The `ollama` user wasn't in `render` group when the service first started.
+
+**Diagnosis:**
+```bash
+journalctl -u ollama --no-pager | grep "inference compute"
+```
+If you see only CPU entries followed by GPU entries, the first start was before
+group membership took effect. Stop, fix groups, restart, re-check.
+
+**Solution:**
+```bash
+sudo usermod -aG render,video ollama
+sudo systemctl restart ollama
+sleep 5
+journalctl -u ollama --no-pager | grep "inference compute"
+```
+Expected output shows both GPUs:
+```
+library=Vulkan name=Vulkan0 description="AMD Radeon RX Vega M GH Graphics (RADV VEGAM)" type=discrete total="4.0 GiB"
+library=Vulkan name=Vulkan1 description="Intel(R) HD Graphics 630 (KBL GT2)" type=iGPU total="23.4 GiB"
+```
 
 ---
 
@@ -599,19 +705,36 @@ df -h
 
 ## Model Selection Guide
 
-Based on available VRAM (for Intel NUC6i7KYB with ~12-13 GB available):
+Available GPU memory varies by hardware configuration. Choose the right column:
 
-| Model | Size | Fits? | Speed | Quality | Use Case |
-|-------|------|-------|-------|---------|----------|
-| qwen2.5:0.5b | 397 MB | ✅ | Very Fast | Low | Testing, quick answers |
-| qwen2.5:1.5b | 986 MB | ✅ | Fast | Medium | Recommended starting point |
-| llama3.2:3b | 2.0 GB | ✅ | Fast | Medium | General purpose |
-| qwen2.5:7b | 4.7 GB | ✅ | Medium | High | Sweet spot for quality/speed |
-| llama3.1:8b | 4.9 GB | ✅ | Medium | High | Similar to qwen2.5:7b |
-| qwen2.5:14b | 9.0 GB | ✅ | Slow | Very High | Best quality, fits barely |
-| qwen3.5:27b | 17 GB | ⚠️ | Very Slow | Excellent | Will offload to CPU (slower) |
+### Intel iGPU (shared memory, e.g. NUC6/NUC7)
+~12-23 GB available (system RAM shared with GPU)
 
-**Recommendation:** Start with `qwen2.5:1.5b`, then try `qwen2.5:7b`
+| Model | Size | Fits? | Speed | Quality |
+|-------|------|-------|-------|---------|
+| qwen2.5:0.5b | 397 MB | ✅ | Very Fast | Low |
+| qwen2.5:1.5b | 986 MB | ✅ | Fast | Medium |
+| llama3.2:3b | 2.0 GB | ✅ | Fast | Medium |
+| qwen2.5:7b | 4.7 GB | ✅ | Medium | High |
+| llama3.1:8b | 4.9 GB | ✅ | Medium | High |
+| qwen2.5:14b | 9.0 GB | ✅ | Slow | Very High |
+| qwen3.5:27b | 17 GB | ⚠️ | Very Slow | Excellent |
+
+### AMD discrete GPU (dedicated VRAM, e.g. Radeon RX Vega M GH)
+~4 GB dedicated VRAM
+
+| Model | Size | Fits? | Speed | Quality |
+|-------|------|-------|-------|---------|
+| qwen2.5:0.5b | 397 MB | ✅ | Very Fast | Low |
+| qwen2.5:1.5b | 986 MB | ✅ | Fast | Medium |
+| llama3.2:3b | 2.0 GB | ✅ | Fast | Medium |
+| qwen2.5:7b | 4.7 GB | ❌ | — | — |
+| llama3.1:8b | 4.9 GB | ❌ | — | — |
+
+Models larger than VRAM will fall back to CPU (acceptable but slower).  
+On hybrid systems (Intel+AMD), Ollama automatically schedules models across both GPUs.
+
+**Recommendation:** Start with `qwen2.5:0.5b`, then try the largest model that fits your VRAM.
 
 ---
 
@@ -657,10 +780,13 @@ If system state is ambiguous:
 Set by systemd override for GPU acceleration:
 
 ```bash
+# Common (both Intel and AMD)
 OLLAMA_VULKAN=1                 # Force Vulkan backend
-RUSTICL_ENABLE=iris             # Enable Intel Mesa OpenCL
 GPU_MAX_ALLOC_PERCENT=100       # Use full GPU memory
 OLLAMA_GPU_OVERHEAD=0           # Minimize overhead
+
+# Intel-only
+RUSTICL_ENABLE=iris             # Enable Intel Mesa OpenCL (omit for AMD/hybrid)
 ```
 
 Optional for debugging:
@@ -686,9 +812,10 @@ User's system is **ready for GPU inference** when:
 
 Stop setup and recommend manual intervention if:
 
-❌ GPU is not Intel (NVIDIA/AMD detected)  
-❌ i915 driver not loaded  
+❌ NVIDIA GPU detected (use nvidia-cuda-toolkit instead — out of scope)  
+❌ Neither i915 nor amdgpu driver loaded  
 ❌ No render nodes found  
+❌ Mesa Vulkan drivers not installed (collect-state.sh checks this)  
 ❌ Kernel is very old (< 5.x)  
 ❌ OS is not Ubuntu 22.04 or 24.04  
 ❌ User has no sudo access  
@@ -702,14 +829,17 @@ For these, explain the issue and point user to manual resources.
 
 - **Ollama Documentation:** https://github.com/ollama/ollama
 - **Mesa ANV (Intel Vulkan):** https://docs.mesa3d.org/drivers/iris.html
+- **Mesa RADV (AMD Vulkan):** https://docs.mesa3d.org/drivers/radv.html
 - **Intel iGPU on Linux:** https://www.intel.com/content/www/us/en/support/articles/000090440/graphics.html
+- **AMD GPU on Linux:** https://amdgpu-install.readthedocs.io/
 - **Ubuntu GPU Support:** https://ubuntu.com/
 
 ---
 
 ## Contact & Support
 
-This guide covers standard Intel iGPU setups on Ubuntu 24.04 LTS.
+This guide covers Intel iGPU and AMD Radeon GPU setups on Ubuntu 24.04 LTS,
+including hybrid GPU systems (e.g., Hades Canyon NUC).
 
 For issues:
 1. Check the Troubleshooting Guide (above)
@@ -719,6 +849,6 @@ For issues:
 
 ---
 
-**Document Version:** 2.0-agent-driven  
+**Document Version:** 2.1-agent-driven  
 **Last Updated:** May 2026  
-**Compatible with:** Ollama 0.24.0+, Ubuntu 24.04 LTS, Intel Iris Pro 580 / Newer iGPUs
+**Compatible with:** Ollama 0.24.0+, Ubuntu 24.04 LTS, Intel Gen9+/AMD Polaris+ via Vulkan

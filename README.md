@@ -1,8 +1,11 @@
-# Ollama Intel iGPU GPU Acceleration — Opencode Agent Setup
+# Ollama GPU Acceleration via Vulkan — Opencode Agent Setup
 
-If you're here, you've probably spent hours trying to get Ollama to use your Intel integrated GPU. You've edited config files, chased forum threads, and watched `ollama ps` stubbornly show 0% GPU. This is a different approach: an AI agent that reads a verified playbook and walks you through the exact steps, one at a time.
+If you're here, you've probably spent hours trying to get Ollama to use your GPU. You've edited config files, chased forum threads, and watched `ollama ps` stubbornly show 0% GPU. This is a different approach: an AI agent that reads a verified playbook and walks you through the exact steps, one at a time.
 
-**Target hardware:** Intel NUC6i7KYB (Iris Pro 580), plus similar Skylake/Kaby Lake/Coffee Lake iGPU systems on Ubuntu 24.04 LTS.
+**Target hardware:**
+- Intel NUC6i7KYB (Iris Pro 580), plus Skylake/Kaby Lake/Coffee Lake iGPU systems on Ubuntu 24.04 LTS
+- **Intel NUC8i7HVK (Hades Canyon)** — AMD Radeon RX Vega M GH via RADV Vulkan
+- Any Intel Gen9+/AMD GPU supported by Mesa Vulkan drivers
 
 ## How it works (so you know what you're agreeing to)
 
@@ -42,7 +45,7 @@ That's it. The agent handles the rest.
 
 ## What exactly will happen to my system?
 
-If your system is a standard Intel iGPU Ubuntu 24.04 setup, the agent may:
+If your system is an Ubuntu 24.04 setup with Intel iGPU, AMD Radeon, or hybrid GPU (e.g., Hades Canyon), the agent may:
 
 - **Add you to groups** — `sudo usermod -aG render,video,ollama $USER` (then you log out and back in)
 - **Install Ollama** — The official installer from ollama.com

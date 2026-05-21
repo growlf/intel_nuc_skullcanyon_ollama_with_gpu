@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ################################################################################
-# Ollama Intel GPU Setup - System State Collector
+# Ollama GPU Setup - System State Collector (Intel & AMD)
 # For use with Opencode Agent
 #
 # This script collects system information and outputs JSON that the agent
@@ -40,26 +40,68 @@ state=$(echo "$state" | jq --arg m "$cpu_model" --arg c "$cpu_cores" '. + {cpu: 
 # ─── GPU ───
 echo "🎮 GPU..." >&2
 if command -v lspci &>/dev/null; then
-    gpu_line=$(lspci -nn 2>/dev/null | grep -iE "vga|3d" | head -1)
+    # Collect ALL GPUs (multi-GPU systems like Hades Canyon)
+    gpu_lines=$(lspci -nn 2>/dev/null | grep -iE "vga|3d|display")
+    gpu_count=$(echo "$gpu_lines" | grep -c .)
     
-    if [[ -n "$gpu_line" ]]; then
-        i915_loaded=0
-        if lspci -v -s 00:02.0 2>/dev/null | grep -q "Kernel driver in use: i915"; then
-            i915_loaded=1
-        fi
-        
-        render_node=$(ls /dev/dri/renderD* 2>/dev/null | head -1)
-        if [[ -z "$render_node" ]]; then
-            render_node=""
-        fi
-        
-        state=$(echo "$state" | jq --arg gpu "$gpu_line" --arg i915 "$i915_loaded" --arg rn "$render_node" \
-          '. + {gpu: {pci: $gpu, i915_loaded: ($i915 | tonumber), render_node: $rn}}')
-    else
-        state=$(echo "$state" | jq '. + {gpu: {pci: "", i915_loaded: 0, render_node: ""}}')
+    # Detect primary GPU manufacturer
+    has_intel=0
+    has_amd=0
+    has_nvidia=0
+    if echo "$gpu_lines" | grep -qi intel; then has_intel=1; fi
+    if echo "$gpu_lines" | grep -qi amd; then has_amd=1; fi
+    if echo "$gpu_lines" | grep -qi nvidia; then has_nvidia=1; fi
+    
+    # Driver detection
+    i915_loaded=0
+    amdgpu_loaded=0
+    lspci -v -s 00:02.0 2>/dev/null | grep -q "Kernel driver in use: i915" && i915_loaded=1
+    # Find AMD GPU PCI address and check its driver
+    amd_pci=$(echo "$gpu_lines" | grep -i amd | head -1 | cut -d' ' -f1)
+    if [[ -n "$amd_pci" ]]; then
+        lspci -v -s "$amd_pci" 2>/dev/null | grep -q "Kernel driver in use: amdgpu" && amdgpu_loaded=1
     fi
+    
+    # Build GPU list
+    gpu_list="[]"
+    while IFS= read -r line; do
+        if [[ -n "$line" ]]; then
+            vendor="unknown"
+            echo "$line" | grep -qi intel && vendor="intel"
+            echo "$line" | grep -qi amd && vendor="amd"
+            echo "$line" | grep -qi nvidia && vendor="nvidia"
+            gpu_list=$(echo "$gpu_list" | jq --arg l "$line" --arg v "$vendor" '. + [$v]')
+        fi
+    done <<< "$gpu_lines"
+    
+    render_node=$(ls /dev/dri/renderD* 2>/dev/null | head -1)
+    if [[ -z "$render_node" ]]; then
+        render_node=""
+    fi
+    
+    state=$(echo "$state" | jq \
+      --arg gpu "$(echo "$gpu_lines" | head -1)" \
+      --argjson i915 "$i915_loaded" \
+      --argjson amdgpu "$amdgpu_loaded" \
+      --arg rn "$render_node" \
+      --argjson count "$gpu_count" \
+      --argjson has_intel "$has_intel" \
+      --argjson has_amd "$has_amd" \
+      --argjson has_nvidia "$has_nvidia" \
+      --argjson gpu_list "$gpu_list" \
+      '. + {gpu: {
+        pci: $gpu,
+        count: $count,
+        has_intel: $has_intel,
+        has_amd: $has_amd,
+        has_nvidia: $has_nvidia,
+        gpu_list: $gpu_list,
+        i915_loaded: $i915,
+        amdgpu_loaded: $amdgpu,
+        render_node: $rn
+      }}')
 else
-    state=$(echo "$state" | jq '. + {gpu: {pci: "unknown", i915_loaded: null, render_node: null}}')
+    state=$(echo "$state" | jq '. + {gpu: {pci: "unknown", count: 0, has_intel: false, has_amd: false, has_nvidia: false, gpu_list: [], i915_loaded: null, amdgpu_loaded: null, render_node: null}}')
 fi
 
 # ─── User & Groups ───

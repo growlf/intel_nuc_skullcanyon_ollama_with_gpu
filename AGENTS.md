@@ -1,6 +1,6 @@
-# AGENTS.md — Intel Skull NUC LLM Setup
+# AGENTS.md — Ollama GPU Setup (Intel & AMD)
 
-This repo is a **static web-hosted deployment package** for automated Ollama GPU acceleration setup on Ubuntu 24.04 LTS with Intel iGPU. Not a code project — no build/test/lint system.
+This repo is a **static web-hosted deployment package** for automated Ollama GPU acceleration setup on Ubuntu 24.04 LTS with Intel iGPU and/or AMD Radeon GPU (including hybrid systems like Intel Hades Canyon NUC). Not a code project — no build/test/lint system.
 
 Agent context is provided by `AGENT_ORCHESTRATION.md` (loaded via `opencode.json` `instructions`). This file is a quick-reference supplement.
 
@@ -33,7 +33,7 @@ bash <(curl -s https://raw.githubusercontent.com/growlf/intel_nuc_skullcanyon_ol
 
 ## Reqs
 
-- **Target:** Ubuntu 24.04 LTS, Intel iGPU, Ollama 0.24.0+
+- **Target:** Ubuntu 24.04 LTS, Intel iGPU or AMD Radeon (RADV), Ollama 0.24.0+
 - **User needs:** sudo, `jq` installed, internet
 - `collect-state.sh` requires `lspci`, `jq`, `curl` — standard on Ubuntu 24.04
 
